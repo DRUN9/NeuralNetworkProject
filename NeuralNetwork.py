@@ -1,6 +1,22 @@
 import numpy
 import scipy.special
+import imageio
+import matplotlib
 
+
+# Работа с нейронной сетью на основе данных MNIST
+
+# Тренировочный набор
+# https://www.pjreddie.com/media/files/mnist_train.csv
+
+# Тестовый набор
+# https://www.pjreddie.com/media/files/mnist_test.csv
+
+# 10 записей из тестового набора данных MNIST
+# https://raw.githubusercontent.com/makeyourownneuralnetwork/makeyourownneuralnetwork/master/mnist_dataset/mnist_test_10.csv
+
+# 100 записей из тренировочного набора данных MNIST
+# https://raw.githubusercontent.com/makeyourownneuralnetwork/makeyourownneuralnetwork/master/mnist_dataset/mnist_train_100.csv
 
 # Определение класса нейронной сети
 class NeuralNetwork:
@@ -12,11 +28,7 @@ class NeuralNetwork:
 
         # Матрицы весовых коэффициентов связей wih(между входным и скрытым слоями)
         # и who(между скрытым и выходными слоями)
-        # self.wih = numpy.random.rand(self.hnodes, self.inodes) - 0.5
-        # self.who = numpy.random.rand(self.onodes, self.hnodes) - 0.5
-
-        # Еще один вариант создания матриц весовых связей
-        # (с помощью нормального распределения со стандартным отклонением)
+        # Создание матрицы весовых связей с помощью нормального распределения со стандартным отклонением
         self.wih = numpy.random.normal(0.0, pow(self.hnodes, -0.5), (self.hnodes, self.inodes))
         self.who = numpy.random.normal(0.0, pow(self.onodes, -0.5), (self.onodes, self.hnodes))
 
@@ -73,3 +85,120 @@ class NeuralNetwork:
         final_outputs = self.activation_function(final_inputs)
 
         return final_outputs
+
+    def input_nodes(self):
+        return self.inodes
+
+    def hidden_nodes(self):
+        return self.hnodes
+
+    def output_nodes(self):
+        return self.onodes
+
+
+def image_test_network(image_file_name, network):
+    label = int(image_file_name[0])
+    img_array = imageio.imread(image_file_name, as_gray=True)
+    img_data = 255.0 - img_array.reshape(784)
+    img_data = (img_data / 255.0 * 0.99) + 0.01
+    record = numpy.append(label, img_data)
+    print(record[0])
+    # Вывод результатов нейронной сети
+    print(network.query(record[1:]))
+
+    # Вывод изображения
+    image_array = numpy.asfarray(record[1:]).reshape((28, 28))
+    matplotlib.pyplot.imshow(image_array, cmap="Greys", interpolation="None")
+    matplotlib.pyplot.show()
+
+
+def train_network(network):
+    # Загрузить в список тестовый набор данных CSV-файла набора MNIST
+    training_data_file = open("MNIST/mnist_train.csv", 'r')
+    training_data_list = training_data_file.readlines()
+    training_data_file.close()
+
+    # Переменная epochs указывает, сколько раз тренировочный набор данных используется для тренировки сети
+    epochs = 2
+    for i in range(epochs):
+        # Перебрать все записи в тренировочном наборе данных
+        for record in training_data_list:
+            # Получить список значений
+            all_values_tr = record.split(',')
+            # Масштабировать и сместить входные значения
+            inputs = (numpy.asfarray(all_values_tr[1:]) / 255.0 * 0.99) + 0.01
+            # Создать целевые выходные значения(все равны 0.01,
+            # за исключением желаемого маркерного значения, равного 0.99)
+            targets = numpy.zeros(network.output_nodes) + 0.01
+            targets[int(all_values_tr[0])] = 0.99
+            network.train(inputs, targets)
+
+
+def test_network(network):
+    # Тестирование нейронной сети
+
+    # Загрузить в список тестовый набор данных CSV-файла набора MNIST
+    test_data_file = open("MNIST/mnist_test.csv", 'r')
+    test_data_list = test_data_file.readlines()
+    test_data_file.close()
+
+    # Журнал оценок работы сети
+    scorecard = []
+
+    # Перебрать все записи в тестовом наборе данных
+    for record in test_data_list:
+        all_values_ts = record.split(',')
+        # Правильный ответ - первое значение
+        correct_label = int(all_values_ts[0])
+        # print(correct_label, "истинный маркер")
+        # Масштабировать и сместить входные значения
+        inputs = numpy.asfarray(all_values_ts[1:]) / 255.0 * 0.99 + 0.01
+        # Опрос сети
+        outputs = network.query(inputs)
+        # Индекс наибольшего значения является маркерным значением
+        label = numpy.argmax(outputs)
+        # print(label, "ответ сети")
+        # Добавление результата в журнал
+        if label == correct_label:
+            # В случае правильного ответа сети присоединить к списку значение 1
+            scorecard.append(1)
+        else:
+            # В случае неправильного - 0
+            scorecard.append(0)
+
+    # Расчет показателя эффективности в виде доли правильных ответов
+    scorecard_array = numpy.asarray(scorecard)
+    print("Эффективность равна", scorecard_array.sum() / scorecard_array.size)
+
+    # Вывод записей журнала
+    return scorecard
+
+
+def one_test_network(network):
+    # Первый тест
+    test_data_file = open("MNIST/mnist_test.csv", 'r')
+    test_data_list = test_data_file.readlines()
+    test_data_file.close()
+
+    all_values_ts1 = test_data_list[0].split(',')
+    # Вывести маркер
+    print(all_values_ts1[0])
+
+    # Вывод результатов нейронной сети
+    print(network.query(numpy.asfarray(all_values_ts1[1:]) / 255.0 * 0.99) + 0.01)
+
+    # Вывод изображения
+    image_array = numpy.asfarray(all_values_ts1[1:]).reshape((28, 28))
+    matplotlib.pyplot.imshow(image_array, cmap="Greys", interpolation="None")
+    matplotlib.pyplot.show()
+
+
+# Создать экземпляр нейронной сети
+input_nodes = 784
+output_nodes = 10
+print("Введите количество скрытых узлов")
+hidden_nodes = int(input())
+print("Введите коэффициент обучения")
+learning_rate = float(input())
+network = NeuralNetwork(input_nodes, hidden_nodes, output_nodes, learning_rate)
+print("1 - тренировка сети, 2 - полный тест сети, 3 - единичный тест, 4 - тест своего изображения, 0 - выход")
