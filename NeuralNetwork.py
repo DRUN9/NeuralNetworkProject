@@ -1,7 +1,9 @@
 import numpy
 import scipy.special
+import scipy.ndimage
 import imageio
-import matplotlib
+import matplotlib.pyplot
+import os.path
 
 
 # Работа с нейронной сетью на основе данных MNIST
@@ -34,6 +36,9 @@ class NeuralNetwork:
 
         # Использование сигмоиды в качестве функции активации
         self.activation_function = lambda x: scipy.special.expit(x)
+
+        # Обратная функция активации
+        self.inverse_activation_function = lambda x: scipy.special.logit(x)
 
         # Коэффициент обучения
         self.lr = learning_rate
@@ -86,6 +91,37 @@ class NeuralNetwork:
 
         return final_outputs
 
+    # Построение изображения по заданным итоговым данным
+    def backquery(self, targets_list):
+        # Транспонирование массива?????
+        final_outputs = numpy.array(targets_list, ndmin=2).T
+
+        # Вычисление сигнала, подаваемого на выходные узлы
+        final_inputs = self.inverse_activation_function(final_outputs)
+
+        # Вычисление сигнала, выходящего из скрытых узлов
+        hidden_outputs = numpy.dot(self.who.T, final_inputs)
+
+        # ????
+        hidden_outputs -= numpy.min(hidden_outputs)
+        hidden_outputs /= numpy.max(hidden_outputs)
+        hidden_outputs *= 0.98
+        hidden_outputs += 0.01
+
+        # Вычислить сигнал, подаваемый на скрытые узлы
+        hidden_inputs = self.inverse_activation_function(hidden_outputs)
+
+        # Вычисление сигнала, выходящего из входных узлов
+        inputs = numpy.dot(self.wih.T, hidden_inputs)
+
+        # ????
+        inputs -= numpy.min(inputs)
+        inputs /= numpy.max(inputs)
+        inputs *= 0.98
+        inputs += 0.01
+
+        return inputs
+
     def input_nodes(self):
         return self.inodes
 
@@ -97,14 +133,16 @@ class NeuralNetwork:
 
 
 def image_test_network(image_file_name, network):
-    label = int(image_file_name[0])
+    label = int(image_file_name.split(".png")[0][-1])
     img_array = imageio.imread(image_file_name, as_gray=True)
     img_data = 255.0 - img_array.reshape(784)
     img_data = (img_data / 255.0 * 0.99) + 0.01
     record = numpy.append(label, img_data)
     print(record[0])
     # Вывод результатов нейронной сети
-    print(network.query(record[1:]))
+    network_output = network.query(record[1:])
+    print(network_output)
+    print(numpy.argmax(network_output))
 
     # Вывод изображения
     image_array = numpy.asfarray(record[1:]).reshape((28, 28))
@@ -119,7 +157,7 @@ def train_network(network):
     training_data_file.close()
 
     # Переменная epochs указывает, сколько раз тренировочный набор данных используется для тренировки сети
-    epochs = 2
+    epochs = 5
     for i in range(epochs):
         # Перебрать все записи в тренировочном наборе данных
         for record in training_data_list:
@@ -129,9 +167,20 @@ def train_network(network):
             inputs = (numpy.asfarray(all_values_tr[1:]) / 255.0 * 0.99) + 0.01
             # Создать целевые выходные значения(все равны 0.01,
             # за исключением желаемого маркерного значения, равного 0.99)
-            targets = numpy.zeros(network.output_nodes) + 0.01
+            targets = numpy.zeros(network.output_nodes()) + 0.01
             targets[int(all_values_tr[0])] = 0.99
             network.train(inputs, targets)
+
+            # Создать повернутые варианты цифр
+            # Повернуть против часовой клетки
+            inputs_plusx_img = scipy.ndimage.interpolation.rotate(inputs.reshape(28, 28), 10,
+                                                                  cval=0.01, order=1, reshape=False)
+            network.train(inputs_plusx_img.reshape(784), targets)
+
+            # Повернуть по часовой стрелке
+            inputs_minusx_img = scipy.ndimage.interpolation.rotate(inputs.reshape(28, 28), -10,
+                                                                   cval=0.01, order=1, reshape=False)
+            network.train(inputs_minusx_img.reshape(784), targets)
 
 
 def test_network(network):
@@ -193,6 +242,20 @@ def one_test_network(network):
     matplotlib.pyplot.show()
 
 
+def inverse_network(network, label):
+    # Создать выходной сигнал
+    targets = numpy.zeros(network.output_nodes()) + 0.01
+    targets[label] = 0.99
+    print(targets)
+
+    # Получить данные для изображения
+    image_data = network.backquery(targets)
+
+    # Вывод изображения
+    matplotlib.pyplot.imshow(image_data.reshape(28, 28), cmap="Greys", interpolation="None")
+    matplotlib.pyplot.show()
+
+
 # Создать экземпляр нейронной сети
 input_nodes = 784
 output_nodes = 10
@@ -201,4 +264,8 @@ hidden_nodes = int(input())
 print("Введите коэффициент обучения")
 learning_rate = float(input())
 network = NeuralNetwork(input_nodes, hidden_nodes, output_nodes, learning_rate)
-print("1 - тренировка сети, 2 - полный тест сети, 3 - единичный тест, 4 - тест своего изображения, 0 - выход")
+# train_network(network)
+# inverse_network(network, 3)
+# image_test_network(os.path.join("My_Images", "5.png"))
+# one_test_network(network)
+# test_network(network)
