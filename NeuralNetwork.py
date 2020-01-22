@@ -150,14 +150,13 @@ def image_test_network(image_file_name, network):
     matplotlib.pyplot.show()
 
 
-def train_network(network):
+def train_network(network, epochs):
     # Загрузить в список тестовый набор данных CSV-файла набора MNIST
     training_data_file = open("MNIST/mnist_train.csv", 'r')
     training_data_list = training_data_file.readlines()
     training_data_file.close()
 
     # Переменная epochs указывает, сколько раз тренировочный набор данных используется для тренировки сети
-    epochs = 5
     for i in range(epochs):
         # Перебрать все записи в тренировочном наборе данных
         for record in training_data_list:
@@ -217,10 +216,12 @@ def test_network(network):
 
     # Расчет показателя эффективности в виде доли правильных ответов
     scorecard_array = numpy.asarray(scorecard)
-    print("Эффективность равна", scorecard_array.sum() / scorecard_array.size)
+    effectiveness = scorecard_array.sum() / scorecard_array.size
+    print("Эффективность равна", effectiveness)
 
-    # Вывод записей журнала
-    return scorecard
+    return effectiveness
+    # # Вывод записей журнала
+    # return scorecard
 
 
 def one_test_network(network):
@@ -242,30 +243,34 @@ def one_test_network(network):
     matplotlib.pyplot.show()
 
 
-def inverse_network(network, label):
+def inverse_network(network, label, info=-1, criterion=-1, exp=False):
+    paths = {0: os.path.join("Результаты тестов", "По скрытым узлам", str(info), str(label + ".png")),
+             1: os.path.join("Результаты тестов", "По количеству эпох", str(info), str(label) + ".png"),
+             2: os.path.join("Результаты тестов", "По коэффициенту обучения", str(info), str(label) + ".png")}
     # Создать выходной сигнал
     targets = numpy.zeros(network.output_nodes()) + 0.01
     targets[label] = 0.99
-    print(targets)
 
     # Получить данные для изображения
     image_data = network.backquery(targets)
 
     # Вывод изображения
     matplotlib.pyplot.imshow(image_data.reshape(28, 28), cmap="Greys", interpolation="None")
-    matplotlib.pyplot.show()
+    if exp:
+        matplotlib.pyplot.savefig(paths[criterion])
+    else:
+        matplotlib.pyplot.show()
 
 
-# Создать экземпляр нейронной сети
-input_nodes = 784
-output_nodes = 10
+INPUT_NODES = 784
+OUTPUT_NODES = 10
 print("Введите количество скрытых узлов")
 hidden_nodes = int(input())
 print("Введите коэффициент обучения")
 learning_rate = float(input())
-network = NeuralNetwork(input_nodes, hidden_nodes, output_nodes, learning_rate)
-# train_network(network)
-# inverse_network(network, 3)
-# image_test_network(os.path.join("My_Images", "5.png"))
+print("Введите количество эпох")
+epochs = int(input())
+# print("Введите название картинки")
+# name = input()
+# image_test_network(os.path.join("My_Images", name, ".png"), network)
 # one_test_network(network)
-# test_network(network)
